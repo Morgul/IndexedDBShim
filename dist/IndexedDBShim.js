@@ -976,7 +976,7 @@ var cleanInterface = false;
             }
         }
     };
-    
+
     /**
      * Need this flag as createObjectStore is synchronous. So, we simply return when create ObjectStore is called
      * but do the processing in the background. All other operations should wait till ready is set
@@ -985,7 +985,7 @@ var cleanInterface = false;
     IDBObjectStore.prototype.__setReadyState = function(key, val){
         this.__ready[key] = val;
     };
-    
+
     /**
      * Called by all operations on the object store, waits till the store is ready, and then performs the operation
      * @param {Object} callback
@@ -1002,7 +1002,7 @@ var cleanInterface = false;
                 }
             }
         }
-        
+
         if (ready) {
             callback();
         }
@@ -1014,7 +1014,7 @@ var cleanInterface = false;
             }, 100);
         }
     };
-    
+
     /**
      * Gets (and optionally caches) the properties like keyPath, autoincrement, etc for this objectStore
      * @param {Object} callback
@@ -1047,7 +1047,7 @@ var cleanInterface = false;
             }
         }, waitOnProperty);
     };
-    
+
     /**
      * From the store properties and object, extracts the value for the key in hte object Store
      * If the table has auto increment, get the next in sequence
@@ -1068,7 +1068,7 @@ var cleanInterface = false;
                 idbModules.util.throwDOMException(0, "Data Error - Could not get the auto increment value for key", error);
             });
         }
-        
+
         var me = this;
         me.__getStoreProps(tx, function(props){
             if (!props) {
@@ -1092,7 +1092,7 @@ var cleanInterface = false;
                         else {
                             callback(primaryKey);
                         }
-                    } 
+                    }
                     catch (e) {
                         idbModules.util.throwDOMException(0, "Data Error - Could not eval key from keyPath", e);
                     }
@@ -1117,17 +1117,28 @@ var cleanInterface = false;
             }
         });
     };
-    
+
     IDBObjectStore.prototype.__insertData = function(tx, encoded, value, primaryKey, success, error){
         var paramMap = {};
         if (typeof primaryKey !== "undefined") {
             paramMap.key = idbModules.Key.encode(primaryKey);
         }
         var indexes = JSON.parse(this.__storeProps.indexList);
+        var values = [];
+        var handleKeyPath = function(keyPath) {
+            values.push(value[keyPath]);
+        };
         for (var key in indexes) {
+            values = [];
             try {
-                paramMap[indexes[key].columnName] = idbModules.Key.encode(eval("value['" + indexes[key].keyPath + "']"));
-            } 
+                if(Array.isArray(indexes[key].keyPath)) {
+                    indexes[key].keyPath.forEach(handleKeyPath);
+
+                    paramMap[indexes[key].columnName] = idbModules.Key.encode(values);
+                } else {
+                    paramMap[indexes[key].columnName] = idbModules.Key.encode(eval("value['" + indexes[key].keyPath + "']"));
+                }
+            }
             catch (e) {
                 error(e);
             }
@@ -1144,9 +1155,9 @@ var cleanInterface = false;
         sqlStart.push("value )");
         sqlEnd.push("?)");
         sqlValues.push(encoded);
-        
+
         var sql = sqlStart.join(" ") + sqlEnd.join(" ");
-        
+
         idbModules.DEBUG && console.log("SQL for adding", sql, sqlValues);
         tx.executeSql(sql, sqlValues, function(tx, data){
             success(primaryKey);
@@ -1154,7 +1165,7 @@ var cleanInterface = false;
             error(err);
         });
     };
-    
+
     IDBObjectStore.prototype.add = function(value, key){
         var me = this,
             request = me.transaction.__createRequest(function(){}); //Stub request
@@ -1167,7 +1178,7 @@ var cleanInterface = false;
         });
         return request;
     };
-    
+
     IDBObjectStore.prototype.put = function(value, key){
         var me = this,
             request = me.transaction.__createRequest(function(){}); //Stub request
@@ -1187,7 +1198,7 @@ var cleanInterface = false;
         });
         return request;
     };
-    
+
     IDBObjectStore.prototype.get = function(key){
         // TODO Key should also be a key range
         var me = this;
@@ -1202,9 +1213,9 @@ var cleanInterface = false;
                         if (0 === data.rows.length) {
                             return success();
                         }
-                        
+
                         success(idbModules.Sca.decode(data.rows.item(0).value));
-                    } 
+                    }
                     catch (e) {
                         idbModules.DEBUG && console.log(e);
                         // If no result is returned, or error occurs when parsing JSON
@@ -1216,7 +1227,7 @@ var cleanInterface = false;
             });
         });
     };
-    
+
     IDBObjectStore.prototype["delete"] = function(key){
         // TODO key should also support key ranges
         var me = this;
@@ -1233,7 +1244,7 @@ var cleanInterface = false;
             });
         });
     };
-    
+
     IDBObjectStore.prototype.clear = function(){
         var me = this;
         return me.transaction.__addToTransactionQueue(function(tx, args, success, error){
@@ -1247,7 +1258,7 @@ var cleanInterface = false;
             });
         });
     };
-    
+
     IDBObjectStore.prototype.count = function(key){
         var me = this;
         return me.transaction.__addToTransactionQueue(function(tx, args, success, error){
@@ -1263,18 +1274,18 @@ var cleanInterface = false;
             });
         });
     };
-    
+
     IDBObjectStore.prototype.openCursor = function(range, direction){
         var cursorRequest = new idbModules.IDBRequest();
         var cursor = new idbModules.IDBCursor(range, direction, this, cursorRequest, "key", "value");
         return cursorRequest;
     };
-    
+
     IDBObjectStore.prototype.index = function(indexName){
         var index = new idbModules.IDBIndex(indexName, this);
         return index;
     };
-    
+
     IDBObjectStore.prototype.createIndex = function(indexName, keyPath, optionalParameters){
         var me = this;
         optionalParameters = optionalParameters || {};
@@ -1293,13 +1304,13 @@ var cleanInterface = false;
         };
         return result;
     };
-    
+
     IDBObjectStore.prototype.deleteIndex = function(indexName){
         var result = new idbModules.IDBIndex(indexName, this, false);
         result.__deleteIndex(indexName);
         return result;
     };
-    
+
     idbModules.IDBObjectStore = IDBObjectStore;
 }(idbModules));
 
